@@ -6,7 +6,7 @@ import HomePage from './pages/HomePage/HomePage';
 function App() {
   return (
     <Router>
-      <nav>
+      <nav className="navbar">
         <Link to="/">Home</Link> |{' '}
       </nav>
 
