@@ -1,0 +1,10 @@
+*.DS_Store
+/node_modules/*
+package-lock.json
+package.json
+.vscode
+*.env
+*.toml
+venv
+ollama
+ollama-linux-amd64.tgz
