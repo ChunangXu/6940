@@ -8,4 +8,4 @@ package.json
 venv
 ollama
 ollama-linux-amd64.tgz
-ai-identities
+ai-identities/
