@@ -9,3 +9,4 @@ venv
 ollama
 ollama-linux-amd64.tgz
 ai-identities/
+__pycache__
