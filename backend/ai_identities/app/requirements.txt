@@ -6,3 +6,5 @@ openai
 anthropic
 google-generativeai
 fastapi[standard]
+SQLAlchemy>=1.4
+databases>=0.5

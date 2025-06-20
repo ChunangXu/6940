@@ -1,14 +1,43 @@
 import asyncio
-from http.client import HTTPException
+from fastapi import HTTPException
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+import datetime
+
+# SQLite + SQLAlchemy configuration
+SQLALCHEMY_DATABASE_URL = "sqlite:///./identifications.db"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class IdentificationRecord(Base):
+    __tablename__ = "identification_records"
+    id = Column(Integer, primary_key=True, index=True)
+    input_text = Column(String, nullable=False)
+    predicted_model = Column(String, nullable=False)
+    confidence = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], 
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -16,22 +45,15 @@ app.add_middleware(
 
 from pydantic import BaseModel
 from typing import List
-
 import importlib.util
 import sys
 import os
 import spacy
 from collections import Counter
 
-
-
 nlp = spacy.load("en_core_web_sm")
 
 def generate_word_frequency(texts):
-    """
-    Generate word frequency Counter from a list of texts using spaCy.
-    Only alphabetic tokens are counted, all lowercased.
-    """
     all_words = []
     for text in texts:
         doc = nlp(text.lower())
@@ -39,15 +61,8 @@ def generate_word_frequency(texts):
     return Counter(all_words)
 
 async def process_texts_predict_and_get_results(texts):
-    """
-    Process a list of texts to generate word frequency and predict model.
-    Returns a dictionary with the results.
-    """
-    # 1. text to word frequency
     word_freq = await asyncio.to_thread(generate_word_frequency, texts)
-    # 2. word frequency to features
     features = await asyncio.to_thread(prepare_features, word_freq)
-    # 3. features to prediction
     predicted_model, confidence, top_predictions, error = await predict_with_confidence(features)
 
     status_message = "success"
@@ -71,38 +86,43 @@ async def process_texts_predict_and_get_results(texts):
         "status": status_message,
     }
 
-# construct absolute path of app.py file in ai-identities directory
+# Load the ai_identities module
 module_path = os.path.join(os.path.dirname(__file__), "ai_identities", "app", "app.py")
 spec = importlib.util.spec_from_file_location("ai_identities_app", module_path)
 ai_identities_app = importlib.util.module_from_spec(spec)
 sys.modules["ai_identities_app"] = ai_identities_app
 spec.loader.exec_module(ai_identities_app)
 
-# Import necessary functions from the ai_identities_app module
 prepare_features = ai_identities_app.prepare_features
-classifier = ai_identities_app.classifier
 predict_with_confidence = ai_identities_app.predict_with_confidence
 query_llm = ai_identities_app.query_llm
-
 
 class IdentifyTextRequest(BaseModel):
     texts: List[str]
 
 @app.post("/identify-by-text")
-async def identify_text(data: IdentifyTextRequest):
-    print("🔍 Received text for identification:", data.texts)
-    """
-    Endpoint to identify text and predict model based on word frequency.
-    Expects a list of texts in the request body.
-    """
+async def identify_text(
+    data: IdentifyTextRequest,
+    db: Session = Depends(get_db)
+):
     if not data.texts or not isinstance(data.texts, list):
         raise HTTPException(status_code=400, detail="Invalid input: 'texts' must be a non-empty list.")
     
     predict_result = await process_texts_predict_and_get_results(data.texts)
     if not predict_result:
         raise HTTPException(status_code=500, detail="Failed to process texts and generate results.")
-    return predict_result
+    
+    record = IdentificationRecord(
+        input_text=data.texts[0],
+        predicted_model=predict_result["predicted_model"],
+        confidence=predict_result["confidence_value"]
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
 
+    predict_result["record_id"] = record.id
+    return predict_result
 
 class GenerateSamplesRequest(BaseModel):
     api_key: str
@@ -114,10 +134,6 @@ class GenerateSamplesRequest(BaseModel):
 
 @app.post("/api/identify-by-prompt")
 async def generate_samples(data: GenerateSamplesRequest):
-    """
-    Endpoint to generate samples using a language model.
-    Expects API key, provider, model, prompt, number of samples, and temperature in the request body.
-    """
     try:
         responses = await query_llm(
             api_key=data.api_key,
@@ -146,9 +162,6 @@ class TestConnectionRequest(BaseModel):
 
 @app.post("/api/test-connection")
 async def test_connection(data: TestConnectionRequest):
-    """
-    Test LLM connection with 1 sample
-    """
     try:
         responses = await query_llm(
             api_key=data.api_key,
