@@ -37,8 +37,41 @@
   }
 }
 
-.navbar {
-  background-color: #282c34;
-  padding: 1rem;
-  color: white;
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  display: flex;
+  min-height: 100vh;
+  margin-top: 70px;
+}
+
+.main-content {
+  flex: 1;
+  padding: 40px 40px 40px 40px;
+  background: #fff;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 15px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.result-box {
+  background: #f7f7f7;
+  border-radius: 10px;
+  padding: 22px 28px;
+  margin-top: 30px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }

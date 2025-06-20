@@ -88,7 +88,7 @@ query_llm = ai_identities_app.query_llm
 class IdentifyTextRequest(BaseModel):
     texts: List[str]
 
-@app.post("/identify-text")
+@app.post("/identify-by-text")
 async def identify_text(data: IdentifyTextRequest):
     print("🔍 Received text for identification:", data.texts)
     """
@@ -112,7 +112,7 @@ class GenerateSamplesRequest(BaseModel):
     num_samples: int = 100
     temperature: float = 0.7
 
-@app.post("/api/generate-samples")
+@app.post("/api/identify-by-prompt")
 async def generate_samples(data: GenerateSamplesRequest):
     """
     Endpoint to generate samples using a language model.
@@ -137,8 +137,6 @@ async def generate_samples(data: GenerateSamplesRequest):
         return predict_result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate samples: {str(e)}")
-    
-from fastapi import Body
 
 class TestConnectionRequest(BaseModel):
     api_key: str

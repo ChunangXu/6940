@@ -1,0 +1,64 @@
+/* src/pages/IdentifyByText.css */
+
+.user-input-area {
+  margin-top: 30px;
+  margin-bottom: 20px;
+}
+
+.user-input-area label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.user-input-area textarea {
+  width: 100%;
+  min-height: 140px;
+  font-size: 16px;
+  padding: 14px;
+  border: 1.5px solid #ccc;
+  border-radius: 7px;
+  resize: vertical;
+  margin-bottom: 18px;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  background: #fafafa;
+}
+
+.user-input-area .button-group {
+  margin-top: 10px;
+}
+
+.user-input-area button {
+  background: #8b2c2c;
+  color: #fff;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.user-input-area button:hover {
+  background: #5c1e1e;
+}
+
+.loading-spinner {
+  margin-top: 30px;
+  text-align: center;
+  color: #8b2c2c;
+  font-size: 22px;
+}
+
+.result-box {
+  margin-top: 30px;
+  background: #f7f7f7;
+  border-radius: 10px;
+  padding: 22px 28px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.result-box h3 {
+  margin-top: 0;
+  color: #8b2c2c;
+}
+
+.result-box span {
+  font-weight: bold;
+}
