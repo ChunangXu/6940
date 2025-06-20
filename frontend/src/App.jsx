@@ -1,9 +1,9 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/sidebar/sidebar";
 import Topbar from "./components/topbar/topbar";
-import Dashboard from "./pages/Dashboard";
-import IdentifyByPrompt from "./pages/IdentifyByPrompt";
-import IdentifyByText from "./pages/IdentifyByText";
+import Dashboard from "./pages/Dashboard/Dashboard";
+import IdentifyByPrompt from "./pages/IdentifyByPrompt/IdentifyByPrompt";
+import IdentifyByText from "./pages/IdentifyByText/IdentifyByText";
 import "./App.css";
 
 function App() {
@@ -23,3 +23,4 @@ function App() {
     </Router>
   );
 }
+export default App;

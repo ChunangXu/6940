@@ -8,7 +8,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500"],  #  ["http://127.0.0.1:5500"] 
+    allow_origins=["http://localhost:3000"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,7 +72,7 @@ async def process_texts_predict_and_get_results(texts):
     }
 
 # construct absolute path of app.py file in ai-identities directory
-module_path = os.path.join(os.path.dirname(__file__), "ai-identities", "app", "app.py")
+module_path = os.path.join(os.path.dirname(__file__), "ai_identities", "app", "app.py")
 spec = importlib.util.spec_from_file_location("ai_identities_app", module_path)
 ai_identities_app = importlib.util.module_from_spec(spec)
 sys.modules["ai_identities_app"] = ai_identities_app

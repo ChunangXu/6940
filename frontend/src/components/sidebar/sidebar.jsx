@@ -1,29 +1,25 @@
 import React from "react";
-import "./Sidebar.css";
+import { Link, useLocation } from "react-router-dom";
+import "./sidebar.css";
 
-const Sidebar = ({ currentPage, onNavigate }) => (
-  <nav className="sidebar">
-    <ul>
-      <li
-        className={currentPage === "Dashboard" ? "active" : ""}
-        onClick={() => onNavigate("Dashboard")}
-      >
-        <i className="fas fa-chart-bar"></i> Dashboard
-      </li>
-      <li
-        className={currentPage === "IdentifyByPrompt" ? "active" : ""}
-        onClick={() => onNavigate("IdentifyByPrompt")}
-      >
-        <i className="fas fa-search"></i> Identify By Prompt
-      </li>
-      <li
-        className={currentPage === "IdentifyByText" ? "active" : ""}
-        onClick={() => onNavigate("IdentifyByText")}
-      >
-        <i className="fas fa-comments"></i> Identify By Text
-      </li>
-    </ul>
-  </nav>
-);
+const Sidebar = () => {
+  const location = useLocation();
+
+  return (
+    <nav className="sidebar">
+      <ul>
+        <li className={location.pathname === "/" ? "active" : ""}>
+          <Link to="/"><i className="fas fa-chart-bar"></i> Dashboard</Link>
+        </li>
+        <li className={location.pathname === "/identify_by_prompt" ? "active" : ""}>
+          <Link to="/identify_by_prompt"><i className="fas fa-search"></i> Identify by Prompt</Link>
+        </li>
+        <li className={location.pathname === "/identify_by_text" ? "active" : ""}>
+          <Link to="/identify_by_text"><i className="fas fa-comments"></i> Identify by Text</Link>
+        </li>
+      </ul>
+    </nav>
+  );
+};
 
 export default Sidebar;
