@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results | AI Model Identifier</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar">
+      <h2>AI Identifier</h2>
+      <ul>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="index.html">Identify Model</a></li>
+        <li class="active"><a href="results.html">Results</a></li>
+        <li>Settings</li>
+      </ul>
+    </nav>
+
+    <main class="main-content">
+      <h1>Results</h1>
+      <p>Paste AI response below to identify the model and view prediction results.</p>
+
+      <!-- Live input form -->
+      <div class="user-input-area">
+        <label for="aiResponse">Paste AI Response Below:</label>
+        <textarea id="aiResponse" placeholder="Paste the AI's response here..."></textarea>
+        <div class="button-group">
+          <button onclick="analyzeResponse()">Identify</button>
+        </div>
+      </div>
+
+      <!-- Loading spinner -->
+      <div class="loading-spinner" id="loading" style="display:none; margin-top: 20px">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Analyzing...</p>
+      </div>
+
+      <!-- Dynamic result box -->
+      <div class="result-box" id="liveResultBox" style="display:none; margin-top: 20px">
+        <h3>Predicted Model: <span id="result-model-live">...</span></h3>
+        <p>Confidence: <span id="result-confidence-live">...</span></p>
+        <p>Analysis: <span id="result-analysis-live">...</span></p>
+      </div>
+
+      <!-- Static history -->
+      <div class="result-box">
+        <h3>Predicted Model: GPT-4o</h3>
+        <p>Confidence: 95%</p>
+        <p>Analysis: Response patterns show high similarity to GPT-style completions.</p>
+        <p>Timestamp: 2025-06-18 14:42</p>
+      </div>
+
+      <div class="result-box">
+        <h3>Predicted Model: Claude-3</h3>
+        <p>Confidence: 89%</p>
+        <p>Analysis: Factual phrasing with clear disclaimers, typical of Claude.</p>
+        <p>Timestamp: 2025-06-17 20:05</p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

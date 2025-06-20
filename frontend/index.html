@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Model Identifier</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    .topbar {
+      width: 100%;
+      background-color: #8b2c2c;
+      color: white;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1000;
+    }
+
+    .topbar-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .topbar-logo {
+      height: 50px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: row;
+      padding-top: 80px;
+    }
+
+    .sidebar {
+      width: 220px;
+      background-color: #2e2e2e;
+      color: white;
+      min-height: 100vh;
+    }
+
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .sidebar ul li {
+      padding: 12px 20px;
+      cursor: pointer;
+    }
+
+    .sidebar ul li i {
+      margin-right: 10px;
+    }
+
+    .sidebar li.active {
+      background-color: #8b2c2c;
+      color: #ffffff;
+      font-weight: bold;
+      border-radius: 5px;
+    }
+
+    .sidebar li:hover {
+      background-color: #5c1e1e;
+      color: #fff;
+    }
+
+    main.main-content {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    .user-input-area {
+      margin-top: 30px;
+    }
+
+    .user-input-area label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .user-input-area textarea {
+      height: 160px;
+      resize: vertical;
+      margin-bottom: 12px;
+    }
+
+    .user-input-area .button-group button {
+      padding: 10px 18px;
+      font-size: 15px;
+      border: 1.5px solid #000;
+      background-color: black;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .user-input-area .button-group button:hover {
+      background-color: #333;
+    }
+
+    #liveResultBox {
+      margin-top: 30px;
+      background-color: #f3f3f3;
+      padding: 15px;
+      border-radius: 5px;
+    }
+
+    .loading-spinner {
+      display: none;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .loading-spinner i {
+      font-size: 30px;
+      color: #8b2c2c;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+        position: relative;
+      }
+      .sidebar ul {
+        display: flex;
+        width: 100%;
+        justify-content: space-around;
+      }
+      main.main-content {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="topbar-title">AI Model Identifier</div>
+    <img src="northeastern-logo.png" alt="Northeastern University" class="topbar-logo" />
+  </div>
+
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li class="active" onclick="showPage('dashboard')">
+          <i class="fas fa-chart-bar"></i> Dashboard
+        </li>
+        <li onclick="showPage('identify')">
+          <i class="fas fa-search"></i> Identify Model
+        </li>
+        <li onclick="showPage('results')">
+          <i class="fas fa-comments"></i> Results
+        </li>
+      </ul>
+    </nav>
+
+    <main class="main-content">
+      <section id="dashboard" class="page active">
+        <h1>Dashboard</h1>
+        <p>Summary view with system metrics, logs, and quick links.</p>
+        <div class="result-box">
+          <h3>System Uptime: 99.9%</h3>
+          <p>Total Identification Requests: 258</p>
+          <p>Last Update: 2025-06-18</p>
+        </div>
+      </section>
+
+      <section id="identify" class="page">
+        <section class="form-section">
+          <label for="provider">Provider:</label>
+          <select id="provider">
+            <option value="openAI">OpenAI</option>
+            <option value="google">Google</option>
+            <option value="deepInfra">DeepInfra</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="mistral">Mistral</option>
+          </select>
+
+          <label for="apiKey">API Key:</label>
+          <input type="password" id="apiKey" placeholder="Enter your API Key" />
+
+          <label for="modelName">Model Name:</label>
+          <input type="text" id="modelName" placeholder="e.g., gpt-4o, claude-3-opus" />
+
+          <label for="prompt">Prompt:</label>
+          <input type="text" id="prompt" placeholder="e.g., Write 10 creative slogans about AI">
+
+          <label for="samples">Number of Samples:</label>
+          <input type="number" id="samples" value="100" min="10" max="4000" />
+
+          <label for="temperature">Temperature:</label>
+          <input type="number" id="temperature" value="0.5" step="0.1" min="0" max="1" />
+
+          <div class="button-group">
+            <button onclick="testConnection()">Test Connection</button>
+            <button onclick="identifyModel()">Identify Model</button>
+            <button onclick="cancelProcess()">Cancel</button>
+          </div>
+        </section>
+
+        <section class="progress-section">
+          <progress id="progressBar" value="0" max="100"></progress>
+          <p id="progressText">0 / 100</p>
+        </section>
+
+        <section class="models-section">
+          <h3>Models in Database</h3>
+          <p>The identifier is trained on these models:</p>
+          <div class="tag-list">
+            <span class="tag">gpt-4o</span>
+            <span class="tag">claude-3-opus</span>
+            <span class="tag">gemini-1.5-flash</span>
+            <span class="tag">deepseek-r1</span>
+            <span class="tag">mistral-7b</span>
+          </div>
+        </section>
+      </section>
+
+      <section id="results" class="page">
+        <h1>Results</h1>
+        <p>Display predicted model, confidence, and response analysis.</p>
+
+        <div class="user-input-area">
+          <label for="aiResponse">Paste AI Response Below:</label>
+          <textarea id="aiResponse" placeholder="Paste the AI's response here..."></textarea>
+          <div class="button-group">
+            <button onclick="analyzeResponse()">Identify</button>
+          </div>
+        </div>
+
+        <div class="loading-spinner" id="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>Analyzing...</p>
+        </div>
+
+        <div class="result-box" id="liveResultBox" style="display:none;">
+          <h3>Predicted Model: <span id="result-model-live">...</span></h3>
+          <p>Confidence: <span id="result-confidence-live">...</span></p>
+          <p>Analysis: <span id="result-analysis-live">...</span></p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+
+      const menuItems = document.querySelectorAll('.sidebar ul li');
+      menuItems.forEach(item => item.classList.remove('active'));
+      menuItems.forEach(item => {
+        if (item.innerText.toLowerCase().includes(pageId.replace("-", " "))) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    function analyzeResponse() {
+      const text = document.getElementById("aiResponse").value.trim();
+      const loader = document.getElementById("loading");
+      const resultBox = document.getElementById("liveResultBox");
+
+      if (!text) {
+        alert("Please paste an AI response.");
+        return;
+      }
+
+      loader.style.display = "block";
+      resultBox.style.display = "none";
+
+      function analyzeResponse() {
+  const text = document.getElementById("aiResponse").value.trim();
+  const loader = document.getElementById("loading");
+  const resultBox = document.getElementById("liveResultBox");
+
+  if (!text) {
+    alert("Please paste an AI response.");
+    return;
+  }
+
+  loader.style.display = "block";
+  resultBox.style.display = "none";
+
+  fetch("http://127.0.0.1:8000/identify-text", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ texts: [text] })
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Failed to reach backend.");
+      return res.json();
+    })
+    .then(data => {
+      loader.style.display = "none";
+      resultBox.style.display = "block";
+
+      document.getElementById("result-model-live").textContent = data.predicted_model || "unknown";
+      document.getElementById("result-confidence-live").textContent = data.confidence || "--%";
+      document.getElementById("result-analysis-live").textContent = data.status || "No analysis.";
+    })
+    .catch(err => {
+      loader.style.display = "none";
+      alert("❌ Could not connect to backend. Make sure the API is running.");
+      console.error("API error:", err);
+    });
+}
+    }
+  </script>
+
+<script src="script.js" defer></script>
+</body>
+</html>

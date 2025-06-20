@@ -2,6 +2,18 @@ import asyncio
 from http.client import HTTPException
 import numpy as np
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500"],  #  ["http://127.0.0.1:5500"] 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 from pydantic import BaseModel
 from typing import List
 
@@ -10,6 +22,8 @@ import sys
 import os
 import spacy
 from collections import Counter
+
+
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -34,9 +48,7 @@ async def process_texts_predict_and_get_results(texts):
     # 2. word frequency to features
     features = await asyncio.to_thread(prepare_features, word_freq)
     # 3. features to prediction
-    predicted_model, confidence, top_predictions, error = await asyncio.to_thread(
-    predict_with_confidence, features
-    )
+    predicted_model, confidence, top_predictions, error = await predict_with_confidence(features)
 
     status_message = "success"
     final_predicted_model = predicted_model
@@ -72,13 +84,13 @@ classifier = ai_identities_app.classifier
 predict_with_confidence = ai_identities_app.predict_with_confidence
 query_llm = ai_identities_app.query_llm
 
-app = FastAPI()
 
 class IdentifyTextRequest(BaseModel):
     texts: List[str]
 
 @app.post("/identify-text")
 async def identify_text(data: IdentifyTextRequest):
+    print("🔍 Received text for identification:", data.texts)
     """
     Endpoint to identify text and predict model based on word frequency.
     Expects a list of texts in the request body.
@@ -86,7 +98,7 @@ async def identify_text(data: IdentifyTextRequest):
     if not data.texts or not isinstance(data.texts, list):
         raise HTTPException(status_code=400, detail="Invalid input: 'texts' must be a non-empty list.")
     
-    predict_result = process_texts_predict_and_get_results(data.texts)
+    predict_result = await process_texts_predict_and_get_results(data.texts)
     if not predict_result:
         raise HTTPException(status_code=500, detail="Failed to process texts and generate results.")
     return predict_result
@@ -125,3 +137,32 @@ async def generate_samples(data: GenerateSamplesRequest):
         return predict_result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate samples: {str(e)}")
+    
+from fastapi import Body
+
+class TestConnectionRequest(BaseModel):
+    api_key: str
+    provider: str
+    model: str
+    temperature: float = 0.7
+
+@app.post("/api/test-connection")
+async def test_connection(data: TestConnectionRequest):
+    """
+    Test LLM connection with 1 sample
+    """
+    try:
+        responses = await query_llm(
+            api_key=data.api_key,
+            provider=data.provider,
+            model=data.model,
+            num_samples=1,
+            temperature=data.temperature,
+            prompt="Hello"
+        )
+        if responses and isinstance(responses[0], str):
+            return {"status": "success", "message": "API connection successful", "response": responses[0]}
+        else:
+            raise ValueError("No valid response from model.")
+    except Exception as e:
+        return {"status": "error", "message": f"Connection failed: {str(e)}"}
