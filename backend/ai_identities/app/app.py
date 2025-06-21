@@ -29,9 +29,18 @@ from openai import (
     PermissionDeniedError,
     RateLimitError,
 )
-
+from db import get_db, IdentificationRecord
+from sqlalchemy.orm import Session
+from fastapi import Depends
 # --- FastAPI Setup ---
 app = FastAPI(title="LLM Identifier API", version="1.0.0")
+
+class IdentifyTextRequest(BaseModel):
+    texts: List[str] = Field(..., description="text list")
+class IdentifyTextResponse(BaseModel):
+    model: str
+    confidence: float
+
 
 # --- Static Files and Templates ---
 # Assume your static files (CSS, JS) are in a 'static' directory
@@ -613,6 +622,21 @@ class TestConnectionRequest(BaseModel):
 
 
 # --- FastAPI Routes ---
+@app.post("/identify-by-text", response_model=IdentifyTextResponse)
+async def identify_text(
+    req: IdentifyTextRequest,
+    db: Session = Depends(get_db)
+):
+    predict_result = {"model": "gpt-4o-mini", "confidence": 0.95}
+    record = IdentificationRecord(
+        input_text="|".join(req.texts),
+        predicted_model=predict_result["model"],
+        confidence=predict_result["confidence"]
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return IdentifyTextResponse(**predict_result)
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
