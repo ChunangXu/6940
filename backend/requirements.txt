@@ -9,3 +9,10 @@ jinja2
 python-dotenv
 requests
 httpx
+SQLAlchemy>=1.4
+databases>=0.5
+flask
+numpy
+pickle-mixin
+anthropic
+google-generativeai

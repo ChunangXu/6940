@@ -29,17 +29,8 @@ from openai import (
     PermissionDeniedError,
     RateLimitError,
 )
-from db import get_db, IdentificationRecord
-from sqlalchemy.orm import Session
-from fastapi import Depends
-# --- FastAPI Setup ---
-app = FastAPI(title="LLM Identifier API", version="1.0.0")
 
-class IdentifyTextRequest(BaseModel):
-    texts: List[str] = Field(..., description="text list")
-class IdentifyTextResponse(BaseModel):
-    model: str
-    confidence: float
+# app = FastAPI(title="LLM Identifier API", version="1.0.0")
 
 
 # --- Static Files and Templates ---
@@ -64,7 +55,7 @@ if not os.path.isdir(templates_dir):
             f.write("<html><head><title>LLM Identifier</title></head><body><h1>LLM Identifier (FastAPI)</h1><p>Frontend not fully implemented yet.</p></body></html>")
 
 
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
+# app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
 # --- Task Management Store (In-Memory - Same Warning Applies) ---
@@ -485,371 +476,353 @@ async def predict_with_confidence(features, logger=logger, classifier=classifier
 
 
 # --- Background Worker Function (Async - Largely the same, uses global logger) ---
-async def run_identification_task(task_id: str, api_key: str, provider: str, model: str, num_samples: int, temperature: float):
-    """The actual async workhorse function that runs in the background."""
-    log_prefix = f"[Task={task_id}] "
-    logger.info(f"{log_prefix}Async worker task started for {provider}/{model}.")
+# async def run_identification_task(task_id: str, api_key: str, provider: str, model: str, num_samples: int, temperature: float):
+#     """The actual async workhorse function that runs in the background."""
+#     log_prefix = f"[Task={task_id}] "
+#     logger.info(f"{log_prefix}Async worker task started for {provider}/{model}.")
 
-    async def update_progress(completed, total):
-        """Async callback function passed to query_llm."""
-        async with task_lock:
-            if task_id in tasks:
-                task = tasks[task_id]
-                task['completed_samples'] = completed
-                if task['status'] == 'pending': task['status'] = 'processing'
-                # Limit logging frequency if needed
-                # if completed % (total // 10 or 1) == 0 or completed == total:
-                logger.debug(f"{log_prefix}Progress update: {completed}/{total} samples.")
-            else:
-                logger.warning(f"{log_prefix}Progress update for non-existent task ID.")
+#     async def update_progress(completed, total):
+#         """Async callback function passed to query_llm."""
+#         async with task_lock:
+#             if task_id in tasks:
+#                 task = tasks[task_id]
+#                 task['completed_samples'] = completed
+#                 if task['status'] == 'pending': task['status'] = 'processing'
+#                 # Limit logging frequency if needed
+#                 # if completed % (total // 10 or 1) == 0 or completed == total:
+#                 logger.debug(f"{log_prefix}Progress update: {completed}/{total} samples.")
+#             else:
+#                 logger.warning(f"{log_prefix}Progress update for non-existent task ID.")
 
-    start_run_time = time.monotonic()
-    try:
-        # 1. Query LLM
-        logger.info(f"{log_prefix}Starting async LLM query...")
-        responses = await query_llm(
-            api_key, provider, model,
-            num_samples, temperature,
-            progress_callback=update_progress,
-            task_id=task_id
-        )
+#     start_run_time = time.monotonic()
+#     try:
+#         # 1. Query LLM
+#         logger.info(f"{log_prefix}Starting async LLM query...")
+#         responses = await query_llm(
+#             api_key, provider, model,
+#             num_samples, temperature,
+#             progress_callback=update_progress,
+#             task_id=task_id
+#         )
 
-        async with task_lock:
-            if task_id in tasks and tasks[task_id]['status'] in ['pending', 'processing']:
-                tasks[task_id]['status'] = 'processing'
-                tasks[task_id]['completed_samples'] = len(responses) # Final based on actual returns
+#         async with task_lock:
+#             if task_id in tasks and tasks[task_id]['status'] in ['pending', 'processing']:
+#                 tasks[task_id]['status'] = 'processing'
+#                 tasks[task_id]['completed_samples'] = len(responses) # Final based on actual returns
 
-        if not responses:
-            raise ValueError(f"Failed to collect any valid responses from {provider}/{model}.")
-        logger.info(f"{log_prefix}Collected {len(responses)} responses.")
+#         if not responses:
+#             raise ValueError(f"Failed to collect any valid responses from {provider}/{model}.")
+#         logger.info(f"{log_prefix}Collected {len(responses)} responses.")
 
-        # --- Run Sync Operations in ThreadPool to Avoid Blocking Event Loop ---
-        # FastAPI encourages using asyncio.to_thread for potentially blocking sync code
-        logger.debug(f"{log_prefix}Processing responses (in thread)...")
-        word_frequencies = await asyncio.to_thread(process_responses, responses)
-        if not word_frequencies:
-            raise ValueError("No valid words extracted from responses.")
-        logger.info(f"{log_prefix}Extracted {len(word_frequencies)} unique words.")
+#         # --- Run Sync Operations in ThreadPool to Avoid Blocking Event Loop ---
+#         # FastAPI encourages using asyncio.to_thread for potentially blocking sync code
+#         logger.debug(f"{log_prefix}Processing responses (in thread)...")
+#         word_frequencies = await asyncio.to_thread(process_responses, responses)
+#         if not word_frequencies:
+#             raise ValueError("No valid words extracted from responses.")
+#         logger.info(f"{log_prefix}Extracted {len(word_frequencies)} unique words.")
 
-        logger.debug(f"{log_prefix}Preparing features (in thread)...")
-        features = await asyncio.to_thread(prepare_features, word_frequencies)
-        if np.sum(features) == 0:
-            logger.warning(f"{log_prefix}Feature vector is all zeros (no overlap with training words).")
+#         logger.debug(f"{log_prefix}Preparing features (in thread)...")
+#         features = await asyncio.to_thread(prepare_features, word_frequencies)
+#         if np.sum(features) == 0:
+#             logger.warning(f"{log_prefix}Feature vector is all zeros (no overlap with training words).")
 
-        # 4. Predict
-        predicted_model, confidence, top_predictions, error_message = await predict_with_confidence(
-            features, logger=logger, classifier=classifier, log_prefix=log_prefix
-        )
+#         # 4. Predict
+#         predicted_model, confidence, top_predictions, error_message = await predict_with_confidence(
+#             features, logger=logger, classifier=classifier, log_prefix=log_prefix
+#         )
 
-        # 5. Prepare Result
-        status_message = "success"
-        final_predicted_model = predicted_model
-        if predicted_model == "unknown":
-            status_message = "success_unrecognized"
-            final_predicted_model = "unrecognized_model"
-            confidence = 0.0
-            top_predictions = []
-        elif np.sum(features) == 0:
-            status_message = "success_no_overlap"
-            logger.warning(f"{log_prefix} Setting confidence to 0 due to zero feature overlap.")
-            confidence = 0.0
+#         # 5. Prepare Result
+#         status_message = "success"
+#         final_predicted_model = predicted_model
+#         if predicted_model == "unknown":
+#             status_message = "success_unrecognized"
+#             final_predicted_model = "unrecognized_model"
+#             confidence = 0.0
+#             top_predictions = []
+#         elif np.sum(features) == 0:
+#             status_message = "success_no_overlap"
+#             logger.warning(f"{log_prefix} Setting confidence to 0 due to zero feature overlap.")
+#             confidence = 0.0
 
-        result_data = {
-            "provider": provider,
-            "input_model": model,
-            "samples_collected": len(responses),
-            "unique_words_extracted": len(word_frequencies),
-            "predicted_model": final_predicted_model,
-            "confidence": f"{confidence:.2%}",
-            "confidence_value": confidence,
-            "top_predictions": top_predictions,
-            "word_frequencies_top": dict(word_frequencies.most_common(20)),
-            "status": status_message,
-        }
+#         result_data = {
+#             "provider": provider,
+#             "input_model": model,
+#             "samples_collected": len(responses),
+#             "unique_words_extracted": len(word_frequencies),
+#             "predicted_model": final_predicted_model,
+#             "confidence": f"{confidence:.2%}",
+#             "confidence_value": confidence,
+#             "top_predictions": top_predictions,
+#             "word_frequencies_top": dict(word_frequencies.most_common(20)),
+#             "status": status_message,
+#         }
 
-        # 6. Update Task State
-        async with task_lock:
-            if task_id in tasks:
-                task_end_time = time.monotonic()
-                duration = task_end_time - tasks[task_id]['start_time_monotonic']
-                tasks[task_id]['status'] = 'completed'
-                tasks[task_id]['result'] = result_data
-                tasks[task_id]['end_time_monotonic'] = task_end_time
-                tasks[task_id]['result']['processing_time_seconds'] = round(duration, 2)
-                logger.info(f"{log_prefix}Task completed successfully in {duration:.2f} seconds.")
-            else:
-                logger.error(f"{log_prefix}Task ID disappeared before completion update.")
+#         # 6. Update Task State
+#         async with task_lock:
+#             if task_id in tasks:
+#                 task_end_time = time.monotonic()
+#                 duration = task_end_time - tasks[task_id]['start_time_monotonic']
+#                 tasks[task_id]['status'] = 'completed'
+#                 tasks[task_id]['result'] = result_data
+#                 tasks[task_id]['end_time_monotonic'] = task_end_time
+#                 tasks[task_id]['result']['processing_time_seconds'] = round(duration, 2)
+#                 logger.info(f"{log_prefix}Task completed successfully in {duration:.2f} seconds.")
+#             else:
+#                 logger.error(f"{log_prefix}Task ID disappeared before completion update.")
 
-    except ProviderAPIError as api_err:
-        error_message = f"API Error ({api_err.status_code}): {api_err.message}"
-        logger.error(f"{log_prefix}Worker failed due to ProviderAPIError: {error_message}", exc_info=False)
-        async with task_lock:
-            if task_id in tasks:
-                tasks[task_id]['status'] = 'error'
-                tasks[task_id]['error_message'] = error_message
-                tasks[task_id]['end_time_monotonic'] = time.monotonic()
-    except ValueError as ve:
-        error_message = f"Data Processing Error: {str(ve)}"
-        logger.error(f"{log_prefix}Worker failed: {error_message}", exc_info=False)
-        async with task_lock:
-            if task_id in tasks:
-                tasks[task_id]['status'] = 'error'
-                tasks[task_id]['error_message'] = error_message
-                tasks[task_id]['end_time_monotonic'] = time.monotonic()
-    except Exception as e:
-        error_message = f"An unexpected error occurred: {str(e)}"
-        logger.error(f"{log_prefix}Worker failed: {error_message}", exc_info=True)
-        async with task_lock:
-            if task_id in tasks:
-                tasks[task_id]['status'] = 'error'
-                tasks[task_id]['error_message'] = error_message
-                tasks[task_id]['end_time_monotonic'] = time.monotonic()
+#     except ProviderAPIError as api_err:
+#         error_message = f"API Error ({api_err.status_code}): {api_err.message}"
+#         logger.error(f"{log_prefix}Worker failed due to ProviderAPIError: {error_message}", exc_info=False)
+#         async with task_lock:
+#             if task_id in tasks:
+#                 tasks[task_id]['status'] = 'error'
+#                 tasks[task_id]['error_message'] = error_message
+#                 tasks[task_id]['end_time_monotonic'] = time.monotonic()
+#     except ValueError as ve:
+#         error_message = f"Data Processing Error: {str(ve)}"
+#         logger.error(f"{log_prefix}Worker failed: {error_message}", exc_info=False)
+#         async with task_lock:
+#             if task_id in tasks:
+#                 tasks[task_id]['status'] = 'error'
+#                 tasks[task_id]['error_message'] = error_message
+#                 tasks[task_id]['end_time_monotonic'] = time.monotonic()
+#     except Exception as e:
+#         error_message = f"An unexpected error occurred: {str(e)}"
+#         logger.error(f"{log_prefix}Worker failed: {error_message}", exc_info=True)
+#         async with task_lock:
+#             if task_id in tasks:
+#                 tasks[task_id]['status'] = 'error'
+#                 tasks[task_id]['error_message'] = error_message
+#                 tasks[task_id]['end_time_monotonic'] = time.monotonic()
 
 # --- Pydantic Models for Request Validation ---
 
-class IdentifyModelRequest(BaseModel):
-    api_key: str = Field(..., description="API key for the provider")
-    provider: str = Field(..., description="Provider name (e.g., openai, google)")
-    model: str = Field(..., description="Model identifier to query")
-    num_samples: Optional[int] = Field(100, ge=10, le=4000, description="Number of samples (10-4000)")
-    temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature (0.0-2.0)")
+# class IdentifyModelRequest(BaseModel):
+#     api_key: str = Field(..., description="API key for the provider")
+#     provider: str = Field(..., description="Provider name (e.g., openai, google)")
+#     model: str = Field(..., description="Model identifier to query")
+#     num_samples: Optional[int] = Field(100, ge=10, le=4000, description="Number of samples (10-4000)")
+#     temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature (0.0-2.0)")
 
-class TestConnectionRequest(BaseModel):
-    api_key: str = Field(..., description="API key for the provider")
-    provider: str = Field(..., description="Provider name (e.g., openai, google)")
-    model: str = Field(..., description="Model identifier to query")
-    temperature: Optional[float] = Field(0.1, ge=0.0, le=2.0, description="Sampling temperature (0.0-2.0)")
+# class TestConnectionRequest(BaseModel):
+#     api_key: str = Field(..., description="API key for the provider")
+#     provider: str = Field(..., description="Provider name (e.g., openai, google)")
+#     model: str = Field(..., description="Model identifier to query")
+#     temperature: Optional[float] = Field(0.1, ge=0.0, le=2.0, description="Sampling temperature (0.0-2.0)")
 
-
-# --- FastAPI Routes ---
-@app.post("/identify-by-text", response_model=IdentifyTextResponse)
-async def identify_text(
-    req: IdentifyTextRequest,
-    db: Session = Depends(get_db)
-):
-    predict_result = {"model": "gpt-4o-mini", "confidence": 0.95}
-    record = IdentificationRecord(
-        input_text="|".join(req.texts),
-        predicted_model=predict_result["model"],
-        confidence=predict_result["confidence"]
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return IdentifyTextResponse(**predict_result)
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Serves the main HTML page."""
-    logger.info("Serving home page")
-    # Check if index.html exists
-    index_html_path = os.path.join(templates_dir, "index.html")
-    if not os.path.isfile(index_html_path):
-        logger.error(f"index.html not found in {templates_dir}")
-        raise HTTPException(status_code=500, detail="Server configuration error: index.html not found.")
-    return templates.TemplateResponse("index.html", {"request": request})
+# @app.get("/", response_class=HTMLResponse)
+# async def home(request: Request):
+#     """Serves the main HTML page."""
+#     logger.info("Serving home page")
+#     # Check if index.html exists
+#     index_html_path = os.path.join(templates_dir, "index.html")
+#     if not os.path.isfile(index_html_path):
+#         logger.error(f"index.html not found in {templates_dir}")
+#         raise HTTPException(status_code=500, detail="Server configuration error: index.html not found.")
+#     return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.post("/api/identify-model", status_code=202)
-async def identify_model_start(data: IdentifyModelRequest):
-    """
-    Accepts model identification parameters, starts a background task,
-    and returns a task ID.
-    """
-    start_time = time.monotonic()
-    logger.info("Received request to START /api/identify-model task")
+# @app.post("/api/identify-model", status_code=202)
+# async def identify_model_start(data: IdentifyModelRequest):
+#     """
+#     Accepts model identification parameters, starts a background task,
+#     and returns a task ID.
+#     """
+#     start_time = time.monotonic()
+#     logger.info("Received request to START /api/identify-model task")
 
-    # Pydantic handles validation based on the model definition (IdentifyModelRequest)
-    # Access validated data directly:
-    api_key = data.api_key
-    provider = data.provider
-    model = data.model
-    num_samples = data.num_samples # Already validated range
-    temperature = data.temperature # Already validated range
+#     # Pydantic handles validation based on the model definition (IdentifyModelRequest)
+#     # Access validated data directly:
+#     api_key = data.api_key
+#     provider = data.provider
+#     model = data.model
+#     num_samples = data.num_samples # Already validated range
+#     temperature = data.temperature # Already validated range
 
-    log_api_key_snippet = f"{api_key[:4]}..." if len(api_key) > 4 else "Provided"
-    logger.info(f"Identify START request params: Provider={provider}, Model={model}, Samples={num_samples}, Temp={temperature}, APIKey={log_api_key_snippet}")
+#     log_api_key_snippet = f"{api_key[:4]}..." if len(api_key) > 4 else "Provided"
+#     logger.info(f"Identify START request params: Provider={provider}, Model={model}, Samples={num_samples}, Temp={temperature}, APIKey={log_api_key_snippet}")
 
-    if classifier is None:
-        logger.error("Classifier model not loaded, cannot start task.")
-        raise HTTPException(status_code=500, detail="Server error: Classifier model not loaded.")
-    if provider.lower() not in PROVIDER_BASE_URLS:
-        logger.warning(f"Provider '{provider}' not explicitly listed. Attempting with default OpenAI base URL settings.")
+#     if classifier is None:
+#         logger.error("Classifier model not loaded, cannot start task.")
+#         raise HTTPException(status_code=500, detail="Server error: Classifier model not loaded.")
+#     if provider.lower() not in PROVIDER_BASE_URLS:
+#         logger.warning(f"Provider '{provider}' not explicitly listed. Attempting with default OpenAI base URL settings.")
 
-    # Create and store task info
-    task_id = str(uuid.uuid4())
-    task_info = {
-        "task_id": task_id,
-        "status": "pending",
-        "provider": provider,
-        "model": model,
-        "total_samples": num_samples,
-        "completed_samples": 0,
-        "result": None,
-        "error_message": None,
-        "start_time_monotonic": time.monotonic(),
-        "end_time_monotonic": None
-    }
+#     # Create and store task info
+#     task_id = str(uuid.uuid4())
+#     task_info = {
+#         "task_id": task_id,
+#         "status": "pending",
+#         "provider": provider,
+#         "model": model,
+#         "total_samples": num_samples,
+#         "completed_samples": 0,
+#         "result": None,
+#         "error_message": None,
+#         "start_time_monotonic": time.monotonic(),
+#         "end_time_monotonic": None
+#     }
 
-    async with task_lock:
-        tasks[task_id] = task_info
+#     async with task_lock:
+#         tasks[task_id] = task_info
 
-    logger.info(f"[Task={task_id}] Created task. Starting background async worker...")
+#     logger.info(f"[Task={task_id}] Created task. Starting background async worker...")
 
-    # Start the background task using asyncio.create_task
-    # FastAPI's BackgroundTasks is typically for tasks tied to finishing the *request*.
-    # For long-running independent tasks, create_task is still appropriate.
-    asyncio.create_task(
-        run_identification_task(task_id, api_key, provider, model, num_samples, temperature)
-    )
+#     # Start the background task using asyncio.create_task
+#     # FastAPI's BackgroundTasks is typically for tasks tied to finishing the *request*.
+#     # For long-running independent tasks, create_task is still appropriate.
+#     asyncio.create_task(
+#         run_identification_task(task_id, api_key, provider, model, num_samples, temperature)
+#     )
 
-    duration = time.monotonic() - start_time
-    logger.info(f"[Task={task_id}] Identification task accepted and started in background ({duration:.3f}s). Returning task ID.")
+#     duration = time.monotonic() - start_time
+#     logger.info(f"[Task={task_id}] Identification task accepted and started in background ({duration:.3f}s). Returning task ID.")
 
-    return {"task_id": task_id}
-
-
-@app.get("/api/task-status/{task_id}")
-async def get_task_status(task_id: str = Path(..., description="The ID of the task to check")):
-    """Retrieves the status and result (if available) of a background task."""
-    logger.debug(f"Request received for /api/task-status/{task_id}")
-
-    async with task_lock:
-        task_info = tasks.get(task_id) # Get a snapshot
-
-    if not task_info:
-        logger.warning(f"Task status request for unknown task_id: {task_id}")
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    # Prepare response data based on the snapshot
-    status = task_info['status']
-    response_data: Dict[str, Any] = {"status": status} # Type hint for clarity
-
-    if status == 'pending' or status == 'processing':
-        response_data["completed_samples"] = task_info.get('completed_samples', 0)
-        response_data["total_samples"] = task_info.get('total_samples', 1)
-        logger.debug(f"Task {task_id} status: {status}, Progress: {response_data['completed_samples']}/{response_data['total_samples']}")
-    elif status == 'completed':
-        result_copy = task_info.get('result', {})
-        # Calculate duration if needed and not present
-        if 'processing_time_seconds' not in result_copy and task_info.get('end_time_monotonic') and task_info.get('start_time_monotonic'):
-            duration = task_info['end_time_monotonic'] - task_info['start_time_monotonic']
-            result_copy['processing_time_seconds'] = round(duration, 2)
-        response_data["result"] = result_copy
-        logger.debug(f"Task {task_id} status: completed.")
-    elif status == 'error':
-        response_data["message"] = task_info.get('error_message', 'Unknown error')
-        logger.debug(f"Task {task_id} status: error, Message: {response_data['message']}")
-
-    return JSONResponse(content=response_data) # Use JSONResponse for explicit control if needed
+#     return {"task_id": task_id}
 
 
-@app.get("/api/models")
-async def get_models():
-    """Returns the list of known models and supported providers."""
-    logger.info("Request received for /api/models")
-    known_models = LIST_OF_MODELS # Default
-    if classifier and hasattr(classifier, 'classes_'):
-        try:
-            classifier_classes = classifier.classes_.tolist()
-            if len(classifier_classes) > 0:
-                known_models = sorted(list(set(classifier_classes)))
-            else:
-                logger.warning("classifier.classes_ is empty. Using hardcoded list.")
-        except Exception as e:
-            logger.error(f"Error accessing classifier.classes_: {e}. Using hardcoded list.")
+# @app.get("/api/task-status/{task_id}")
+# async def get_task_status(task_id: str = Path(..., description="The ID of the task to check")):
+#     """Retrieves the status and result (if available) of a background task."""
+#     logger.debug(f"Request received for /api/task-status/{task_id}")
 
-    supported_providers = sorted(list(PROVIDER_BASE_URLS.keys()))
-    return {
-        "models": known_models,
-        "supported_providers": supported_providers
-    }
+#     async with task_lock:
+#         task_info = tasks.get(task_id) # Get a snapshot
 
+#     if not task_info:
+#         logger.warning(f"Task status request for unknown task_id: {task_id}")
+#         raise HTTPException(status_code=404, detail="Task not found")
 
-@app.post("/api/test-connection")
-async def test_connection(data: TestConnectionRequest):
-    """Tests the connection to the specified provider and model using the API key."""
-    start_time = time.monotonic()
-    logger.info("Received request for /api/test-connection")
+#     # Prepare response data based on the snapshot
+#     status = task_info['status']
+#     response_data: Dict[str, Any] = {"status": status} # Type hint for clarity
 
-    # Pydantic handles validation
-    api_key = data.api_key
-    provider = data.provider
-    model = data.model
-    temperature = data.temperature
+#     if status == 'pending' or status == 'processing':
+#         response_data["completed_samples"] = task_info.get('completed_samples', 0)
+#         response_data["total_samples"] = task_info.get('total_samples', 1)
+#         logger.debug(f"Task {task_id} status: {status}, Progress: {response_data['completed_samples']}/{response_data['total_samples']}")
+#     elif status == 'completed':
+#         result_copy = task_info.get('result', {})
+#         # Calculate duration if needed and not present
+#         if 'processing_time_seconds' not in result_copy and task_info.get('end_time_monotonic') and task_info.get('start_time_monotonic'):
+#             duration = task_info['end_time_monotonic'] - task_info['start_time_monotonic']
+#             result_copy['processing_time_seconds'] = round(duration, 2)
+#         response_data["result"] = result_copy
+#         logger.debug(f"Task {task_id} status: completed.")
+#     elif status == 'error':
+#         response_data["message"] = task_info.get('error_message', 'Unknown error')
+#         logger.debug(f"Task {task_id} status: error, Message: {response_data['message']}")
 
-    log_api_key_snippet = f"{api_key[:4]}..." if len(api_key) > 4 else "Provided"
-    logger.info(f"Test connection params: Provider={provider}, Model={model}, Temp={temperature}, APIKey={log_api_key_snippet}")
-
-    if provider.lower() not in PROVIDER_BASE_URLS:
-        logger.warning(f"Provider '{provider}' not explicitly listed for test. Attempting with default OpenAI base URL settings.")
-
-    try:
-        logger.info(f"Attempting single async query to test connection to {provider}/{model}")
-        responses = await query_llm(api_key, provider, model, num_samples=1, temperature=temperature)
-        duration = time.monotonic() - start_time
-
-        if responses and isinstance(responses[0], str) and responses[0].strip():
-            logger.info(f"Test connection successful for {provider}/{model} ({duration:.2f}s).")
-            return {
-                "status": "success",
-                "message": f"Successfully connected to {provider} and received response from {model}.",
-                "response_preview": responses[0][:100] + ('...' if len(responses[0]) > 100 else ''),
-                "processing_time_seconds": round(duration, 2)
-            }
-        elif responses:
-            logger.warning(f"Test connection to {provider}/{model} returned an invalid/empty response: Type={type(responses[0])} ({duration:.2f}s)")
-            # Return a 500 error as the connection worked but the response was unusable
-            raise HTTPException(
-                status_code=500,
-                detail=f"Connected to {provider}/{model} but received an empty or invalid response."
-            )
-        else:
-            logger.warning(f"Test connection failed: No valid response from {provider}/{model} ({duration:.2f}s). Check credentials, model, provider.")
-            # Return a 500 error indicating failure to get a response
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to get response from '{model}' via '{provider}'. Check credentials, model name, Base URL, and provider status."
-            )
-
-    except ProviderAPIError as api_err:
-        duration = time.monotonic() - start_time
-        logger.error(f"Test connection ProviderAPIError for {provider}/{model} ({duration:.2f}s): {api_err}", exc_info=False)
-        status_code = api_err.status_code if isinstance(api_err.status_code, int) and 400 <= api_err.status_code < 600 else 500
-        # Raise HTTPException to let FastAPI handle the response formatting
-        raise HTTPException(
-            status_code=status_code,
-            detail=f"API Error ({api_err.status_code or 'N/A'}): {api_err.message}"
-        )
-    except HTTPException:
-        # Re-raise HTTPException if caught (e.g., from the 'elif responses' or 'else' blocks above)
-        raise
-    except Exception as e:
-        duration = time.monotonic() - start_time
-        logger.error(f"Test connection unexpected error for {provider}/{model} ({duration:.2f}s): {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"An unexpected server error occurred: {str(e)}"
-        )
+#     return JSONResponse(content=response_data) # Use JSONResponse for explicit control if needed
 
 
-# --- Main Execution (Using Uvicorn) ---
-if __name__ == '__main__':
-    import uvicorn
-    port = int(os.environ.get('PORT', 5001))
-    host = os.environ.get('HOST', 'localhost')
-    log_level_uvicorn = log_level_name.lower() # Uvicorn uses lowercase log level names
+# @app.get("/api/models")
+# async def get_models():
+#     """Returns the list of known models and supported providers."""
+#     logger.info("Request received for /api/models")
+#     known_models = LIST_OF_MODELS # Default
+#     if classifier and hasattr(classifier, 'classes_'):
+#         try:
+#             classifier_classes = classifier.classes_.tolist()
+#             if len(classifier_classes) > 0:
+#                 known_models = sorted(list(set(classifier_classes)))
+#             else:
+#                 logger.warning("classifier.classes_ is empty. Using hardcoded list.")
+#         except Exception as e:
+#             logger.error(f"Error accessing classifier.classes_: {e}. Using hardcoded list.")
 
-    # Recommended way to run FastAPI apps
-    logger.info(f"Starting Uvicorn server on {host}:{port}. Log level: {log_level_uvicorn}")
-    uvicorn.run(
-        "__main__:app", # Reference the app instance in this file
-        host=host,
-        port=port,
-        log_level=log_level_uvicorn,
-        reload=os.environ.get('FASTAPI_RELOAD', 'false').lower() == 'true', # Use reload for development if needed
-        # reload_dirs=[script_dir], # Optionally specify directories to watch for reload
-    )
+#     supported_providers = sorted(list(PROVIDER_BASE_URLS.keys()))
+#     return {
+#         "models": known_models,
+#         "supported_providers": supported_providers
+#     }
+
+
+# @app.post("/api/test-connection")
+# async def test_connection(data: TestConnectionRequest):
+#     """Tests the connection to the specified provider and model using the API key."""
+#     start_time = time.monotonic()
+#     logger.info("Received request for /api/test-connection")
+
+#     # Pydantic handles validation
+#     api_key = data.api_key
+#     provider = data.provider
+#     model = data.model
+#     temperature = data.temperature
+
+#     log_api_key_snippet = f"{api_key[:4]}..." if len(api_key) > 4 else "Provided"
+#     logger.info(f"Test connection params: Provider={provider}, Model={model}, Temp={temperature}, APIKey={log_api_key_snippet}")
+
+#     if provider.lower() not in PROVIDER_BASE_URLS:
+#         logger.warning(f"Provider '{provider}' not explicitly listed for test. Attempting with default OpenAI base URL settings.")
+
+#     try:
+#         logger.info(f"Attempting single async query to test connection to {provider}/{model}")
+#         responses = await query_llm(api_key, provider, model, num_samples=1, temperature=temperature)
+#         duration = time.monotonic() - start_time
+
+#         if responses and isinstance(responses[0], str) and responses[0].strip():
+#             logger.info(f"Test connection successful for {provider}/{model} ({duration:.2f}s).")
+#             return {
+#                 "status": "success",
+#                 "message": f"Successfully connected to {provider} and received response from {model}.",
+#                 "response_preview": responses[0][:100] + ('...' if len(responses[0]) > 100 else ''),
+#                 "processing_time_seconds": round(duration, 2)
+#             }
+#         elif responses:
+#             logger.warning(f"Test connection to {provider}/{model} returned an invalid/empty response: Type={type(responses[0])} ({duration:.2f}s)")
+#             # Return a 500 error as the connection worked but the response was unusable
+#             raise HTTPException(
+#                 status_code=500,
+#                 detail=f"Connected to {provider}/{model} but received an empty or invalid response."
+#             )
+#         else:
+#             logger.warning(f"Test connection failed: No valid response from {provider}/{model} ({duration:.2f}s). Check credentials, model, provider.")
+#             # Return a 500 error indicating failure to get a response
+#             raise HTTPException(
+#                 status_code=500,
+#                 detail=f"Failed to get response from '{model}' via '{provider}'. Check credentials, model name, Base URL, and provider status."
+#             )
+
+#     except ProviderAPIError as api_err:
+#         duration = time.monotonic() - start_time
+#         logger.error(f"Test connection ProviderAPIError for {provider}/{model} ({duration:.2f}s): {api_err}", exc_info=False)
+#         status_code = api_err.status_code if isinstance(api_err.status_code, int) and 400 <= api_err.status_code < 600 else 500
+#         # Raise HTTPException to let FastAPI handle the response formatting
+#         raise HTTPException(
+#             status_code=status_code,
+#             detail=f"API Error ({api_err.status_code or 'N/A'}): {api_err.message}"
+#         )
+#     except HTTPException:
+#         # Re-raise HTTPException if caught (e.g., from the 'elif responses' or 'else' blocks above)
+#         raise
+#     except Exception as e:
+#         duration = time.monotonic() - start_time
+#         logger.error(f"Test connection unexpected error for {provider}/{model} ({duration:.2f}s): {str(e)}", exc_info=True)
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"An unexpected server error occurred: {str(e)}"
+#         )
+
+
+# # --- Main Execution (Using Uvicorn) ---
+# if __name__ == '__main__':
+#     import uvicorn
+#     port = int(os.environ.get('PORT', 5001))
+#     host = os.environ.get('HOST', 'localhost')
+#     log_level_uvicorn = log_level_name.lower() # Uvicorn uses lowercase log level names
+
+#     # Recommended way to run FastAPI apps
+#     logger.info(f"Starting Uvicorn server on {host}:{port}. Log level: {log_level_uvicorn}")
+#     uvicorn.run(
+#         "__main__:app", # Reference the app instance in this file
+#         host=host,
+#         port=port,
+#         log_level=log_level_uvicorn,
+#         reload=os.environ.get('FASTAPI_RELOAD', 'false').lower() == 'true', # Use reload for development if needed
+#         # reload_dirs=[script_dir], # Optionally specify directories to watch for reload
+#     )
 
     # Alternative: Run directly if uvicorn isn't installed/preferred (less common)
     # print("Running without Uvicorn is not standard for FastAPI.")
