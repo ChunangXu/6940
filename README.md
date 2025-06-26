@@ -94,6 +94,10 @@ Make sure the backend server and frontend are running simultaneously. The fronte
 
 ---
 
+## Deployment
+
+Unpack the 6940-deployable.zip and follow deployment instuction in its README.md
+
 ## Example Visualizations
 
 - `top_words_by_model.png`: Highlights top keywords for each model.
